@@ -2,6 +2,8 @@ from typing import Any
 import numpy as np
 import gymnasium as gym
 import pygame
+import matplotlib.pylab as pylab
+from matplotlib.backends import backend_agg
 
 
 class CarRentalEnv(gym.Env):
@@ -24,6 +26,7 @@ class CarRentalEnv(gym.Env):
     requests_returns = np.array(((None, None), (None, None)))
     action = None
     reward = None
+    reward_history = [0]
     
     def __init__(self, render_mode="human") -> None:
         super().__init__()
@@ -46,6 +49,11 @@ class CarRentalEnv(gym.Env):
         # Choose intial state
         self.state = np.array([self.max_cars, self.max_cars])
         self.close()
+        # reset info data
+        self.requests_returns = np.array(((None, None), (None, None)))
+        self.action = None
+        self.reward = None
+        self.reward_history = [0]
         return self._get_obs(), self._get_info()
     
     def step(self, action: int) -> tuple[Any, Any, bool, bool, dict[str, Any]]:
@@ -56,6 +64,7 @@ class CarRentalEnv(gym.Env):
         self.requests_returns = requests_returns
         self.action = action
         self.reward = reward
+        self.reward_history.append(self.reward_history[-1] + self.reward)
         
         terminated = False  # Is agent reach terminal state?
         truncated = False  # Is truncation condition outside the scope of the MDP satisfied?
@@ -131,8 +140,25 @@ class CarRentalEnv(gym.Env):
         font_rect.midtop = (self.window_size/2, pos[1]+200)
         self.window.blit(font_surface, font_rect)
             
-        # draw graph
-                    
+        # get raw image of graph
+        fig = pylab.figure(figsize=(5, 5), dpi=self.window_size/5)
+        ax = fig.gca()
+        ax.plot(self._get_info()["reward_history"])
+        ax.set_ylabel("cumulative profit")
+        ax.tick_params(axis='y', rotation=90)
+        ax.set_xlabel("days")
+        graph_surface = backend_agg.FigureCanvasAgg(fig)
+        graph_surface.draw()
+        renderer = graph_surface.get_renderer()
+        raw_image = renderer.tostring_rgb()
+        
+        size = graph_surface.get_width_height()
+        canvas = pygame.image.fromstring(raw_image, size, "RGB")
+        canvas_rect = canvas.get_rect()
+        canvas_rect.topleft = (self.window_size, 0)
+        self.window.blit(canvas, canvas_rect)
+        pylab.close(fig)
+
         # update
         pygame.event.pump()
         pygame.display.update()
@@ -188,4 +214,5 @@ class CarRentalEnv(gym.Env):
             "requests_returns": self.requests_returns,
             "action": self.action,
             "reward": self.reward,
+            "reward_history": self.reward_history,
         }
