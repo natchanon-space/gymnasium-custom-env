@@ -82,12 +82,12 @@ class CarRentalEnv(gym.Env):
         canvas = pygame.Surface((self.window_size*2, self.window_size))
         canvas.fill((255, 255, 255))
         self.window.blit(canvas, canvas.get_rect())
-        
+    
+        font = pygame.font.Font(pygame.font.get_default_font(), 40)
         # current state display
         for car, idx, pos in zip(self._get_obs(), [(0, "A"), (1, "B")], [(self.window_size/4, self.window_size/2), (self.window_size*3/4, self.window_size/2)]):
             pos = (pos[0], pos[1]-75)
             # set font
-            font = pygame.font.Font(pygame.font.get_default_font(), 40)
             # name
             font_surface = font.render(f"{idx[1]}", True, (0, 0, 0))
             font_rect = font_surface.get_rect()
@@ -112,22 +112,24 @@ class CarRentalEnv(gym.Env):
             font_rect = font_surface.get_rect()
             font_rect.midtop = (pos[0], pos[1]+100)
             self.window.blit(font_surface, font_rect)
-            # actions
-            action_str = ""
-            if action is not None:
-                if action >= 0:
-                    action_str = f"A -> B ({action})"
-                else:
-                    action_str = f"A <- B ({-action})"
-            font_surface = font.render(f"action: {action_str}", True, (0, 0, 0))
-            font_rect = font_surface.get_rect()
-            font_rect.midtop = (self.window_size/2, pos[1]+150)
-            self.window.blit(font_surface, font_rect)
-            # profit
-            font_surface = font.render(f"profit: {profit}", True, (0, 0, 0))
-            font_rect = font_surface.get_rect()
-            font_rect.midtop = (self.window_size/2, pos[1]+200)
-            self.window.blit(font_surface, font_rect)
+        action = self._get_info()["action"]
+        profit = self._get_info()["reward"]
+        # actions
+        action_str = ""
+        if action is not None:
+            if action >= 0:
+                action_str = f"A -> B ({action})"
+            else:
+                action_str = f"A <- B ({-action})"
+        font_surface = font.render(f"action: {action_str}", True, (0, 0, 0))
+        font_rect = font_surface.get_rect()
+        font_rect.midtop = (self.window_size/2, pos[1]+150)
+        self.window.blit(font_surface, font_rect)
+        # profit
+        font_surface = font.render(f"profit: {profit}", True, (0, 0, 0))
+        font_rect = font_surface.get_rect()
+        font_rect.midtop = (self.window_size/2, pos[1]+200)
+        self.window.blit(font_surface, font_rect)
             
         # draw graph
                     
