@@ -1,6 +1,7 @@
 from typing import Any
 import numpy as np
 import gymnasium as gym
+import pygame
 
 
 class CarRentalEnv(gym.Env):
@@ -19,8 +20,14 @@ class CarRentalEnv(gym.Env):
     window_size = 512
     clock = None
     
-    def __init__(self) -> None:
+    # info data
+    requests_returns = np.array(((None, None), (None, None)))
+    action = None
+    reward = None
+    
+    def __init__(self, render_mode="human") -> None:
         super().__init__()
+        self.render_mode = render_mode
         
         # initiate observation and action spaces
         self.observation_space = gym.spaces.MultiDiscrete([self.max_cars+1]*2)
@@ -30,17 +37,15 @@ class CarRentalEnv(gym.Env):
         )
         self.reset()
         
-        # TODO: set render mode
+        if self.render_mode == "human":
+            self.render()
         
     def reset(self, *, seed=None, options=None) -> tuple[Any, dict[str, Any]]:
         """Initiate new episode."""
         super().reset(seed=seed, options=options)
-        
-        # Choose intial state randomly from obseravation space
-        self.state = self.observation_space.sample()
-        
-        # TODO: initiate rendering
-        
+        # Choose intial state
+        self.state = np.array([self.max_cars, self.max_cars])
+        self.close()
         return self._get_obs(), self._get_info()
     
     def step(self, action: int) -> tuple[Any, Any, bool, bool, dict[str, Any]]:
@@ -48,10 +53,95 @@ class CarRentalEnv(gym.Env):
         self.state, reward = self._transition(
             self.state, action, requests_returns
         )
+        self.requests_returns = requests_returns
+        self.action = action
+        self.reward = reward
         
         terminated = False  # Is agent reach terminal state?
         truncated = False  # Is truncation condition outside the scope of the MDP satisfied?
-        return self._get_obs(), reward, terminated, truncated, self._get_info() 
+        
+        if self.render_mode == "human":
+            self.render()
+        
+        return self._get_obs(), reward, terminated, truncated, self._get_info()
+    
+    def render(self) -> None:
+        return self._render_frame()
+    
+    def _render_frame(self):
+        if self.window is None:
+            pygame.init()
+            pygame.display.init()
+            pygame.event
+            self.window = pygame.display.set_mode(
+                (self.window_size*2, self.window_size)
+            )
+        if self.clock is None:
+            self.clock = pygame.time.Clock()
+            
+        canvas = pygame.Surface((self.window_size*2, self.window_size))
+        canvas.fill((255, 255, 255))
+        self.window.blit(canvas, canvas.get_rect())
+        
+        # current state display
+        for car, idx, pos in zip(self._get_obs(), [(0, "A"), (1, "B")], [(self.window_size/4, self.window_size/2), (self.window_size*3/4, self.window_size/2)]):
+            pos = (pos[0], pos[1]-75)
+            # set font
+            font = pygame.font.Font(pygame.font.get_default_font(), 40)
+            # name
+            font_surface = font.render(f"{idx[1]}", True, (0, 0, 0))
+            font_rect = font_surface.get_rect()
+            font_rect.midtop = (pos[0], pos[1]-50)
+            self.window.blit(font_surface, font_rect)
+            # car stats
+            font_surface = font.render(f"{car}", True, (0, 0, 0))
+            font_rect = font_surface.get_rect()
+            font_rect.midtop = pos
+            self.window.blit(font_surface, font_rect)
+            # get info
+            requests, returns = self._get_info()["requests_returns"]
+            action = self._get_info()["action"]
+            profit = self._get_info()["reward"]
+            # requests
+            font_surface = font.render(f"requests: {requests[idx[0]]}", True, (0, 0, 0))
+            font_rect = font_surface.get_rect()
+            font_rect.midtop = (pos[0], pos[1]+50)
+            self.window.blit(font_surface, font_rect)
+            # returns
+            font_surface = font.render(f"returns: {returns[idx[0]]}", True, (0, 0, 0))
+            font_rect = font_surface.get_rect()
+            font_rect.midtop = (pos[0], pos[1]+100)
+            self.window.blit(font_surface, font_rect)
+            # actions
+            action_str = ""
+            if action is not None:
+                if action >= 0:
+                    action_str = f"A -> B ({action})"
+                else:
+                    action_str = f"A <- B ({-action})"
+            font_surface = font.render(f"action: {action_str}", True, (0, 0, 0))
+            font_rect = font_surface.get_rect()
+            font_rect.midtop = (self.window_size/2, pos[1]+150)
+            self.window.blit(font_surface, font_rect)
+            # profit
+            font_surface = font.render(f"profit: {profit}", True, (0, 0, 0))
+            font_rect = font_surface.get_rect()
+            font_rect.midtop = (self.window_size/2, pos[1]+200)
+            self.window.blit(font_surface, font_rect)
+            
+        # draw graph
+                    
+        # update
+        pygame.event.pump()
+        pygame.display.update()
+        self.clock.tick(20)
+        
+    def close(self):
+        if self.window is not None:
+            pygame.display.quit()
+            pygame.quit()
+            self.window = None
+            self.clock = None
     
     def _transition(self, state: np.array, action: int, requests_returns: np.array) -> tuple[Any, dict[str, Any]]:
         # check validity of input action and state
@@ -92,4 +182,8 @@ class CarRentalEnv(gym.Env):
         return np.copy(self.state)
     
     def _get_info(self):
-        return {}
+        return {
+            "requests_returns": self.requests_returns,
+            "action": self.action,
+            "reward": self.reward,
+        }
