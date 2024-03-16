@@ -16,18 +16,18 @@ class CarRentalEnv(gym.Env):
     ], dtype=int)
     rental_cost = 10
     transfer_expense = 2
-    
+
     # PyGame window settings
     window = None
     window_size = 512
     clock = None
-    
+
     # info data
     requests_returns = np.array(((None, None), (None, None)))
     action = None
     reward = None
     reward_history = [0]
-    
+        
     def __init__(self, render_mode="human") -> None:
         super().__init__()
         self.render_mode = render_mode
@@ -42,25 +42,27 @@ class CarRentalEnv(gym.Env):
         
         if self.render_mode == "human":
             self.render()
-        
+
     def reset(self, *, seed=None, options=None) -> tuple[Any, dict[str, Any]]:
         """Initiate new episode."""
         super().reset(seed=seed, options=options)
         # Choose intial state
         self.state = np.array([self.max_cars, self.max_cars])
-        self.close()
+        self.state = self.observation_space.sample()
+
         # reset info data
         self.requests_returns = np.array(((None, None), (None, None)))
         self.action = None
         self.reward = None
         self.reward_history = [0]
         return self._get_obs(), self._get_info()
-    
+
     def step(self, action: int) -> tuple[Any, Any, bool, bool, dict[str, Any]]:
         requests_returns = np.random.poisson(self.expected_requests_returns)
         self.state, reward = self._transition(
             self.state, action, requests_returns
         )
+
         self.requests_returns = requests_returns
         self.action = action
         self.reward = reward
@@ -162,7 +164,7 @@ class CarRentalEnv(gym.Env):
         # update
         pygame.event.pump()
         pygame.display.update()
-        self.clock.tick(20)
+        self.clock.tick(30)
         
     def close(self):
         if self.window is not None:
